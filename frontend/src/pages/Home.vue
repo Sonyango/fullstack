@@ -7,8 +7,20 @@ import axiosClient from '../axios';
 
 const data = ref({
     label: '',
-    image: null
-})
+    image: null,
+});
+const previewUrl = ref(null);
+
+function handleFileChange(event) {
+    const file = event.target.files[0];
+    data.value.image = file;
+
+    if (file) {
+        previewUrl.value = URL.createObjectURL(file);
+    } else {
+        previewUrl.value = null;
+    }
+}
 
 function submit() {
     const formData = new FormData();
@@ -38,14 +50,24 @@ function submit() {
                 <label for="cover-photo" class="block text-sm/6 font-medium text-gray-900">Image</label>
                 <div class="mt-2 flex justify-center rounded-lg border border-dashed border-gray-900/25 px-6 py-10">
                     <div class="text-center">
-                        <PhotoIcon class="mx-auto size-12 text-gray-300" aria-hidden="true" />
-                        <div class="mt-4 flex text-sm/6 text-gray-600">
+                        <div v-if="!previewUrl">
+                            <PhotoIcon class="mx-auto size-12 text-gray-300" aria-hidden="true" />
+                        </div>
+                        <div v-else class="mt-2 flex justify-center">
+                                <img :src="previewUrl" alt="Image Preview" class="max-h-48 w-full object-contain rounded-md" />
+                            </div>
+
+                        <div v-if="!data.image" class="mt-4 flex text-sm/6 text-gray-600">
                             <label for="file-upload"
                                 class="relative cursor-pointer rounded-md bg-white font-semibold text-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600 focus-within:ring-offset-2 focus-within:outline-hidden hover:text-indigo-500">
                                 <span>Upload a file</span>
-                                <input id="file-upload" name="file-upload" type="file" @change="data.image = $event.target.files[0]" class="sr-only" />
+                                <input id="file-upload" name="file-upload" type="file" @change="handleFileChange" class="sr-only" /> 
                             </label>
                             <p class="pl-1">or drag and drop</p>
+                        </div>
+                        <div v-else="data.image" class="mt-1 text-sm/6 text-gray-600">
+                            {{ data.image.name }}
+                            
                         </div>
                         <p class="text-xs/5 text-gray-600">PNG, JPG, GIF up to 10MB</p>
                     </div>
@@ -59,11 +81,14 @@ function submit() {
                         class="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6" />
                 </div>
             </div>
-            <button type="submit" class="rounded-md bg-indigo-600 px-3 py-2 
-    text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 
-    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                Upload
-            </button>
+                <button type="submit"
+                    :disabled="!data.image"
+                    :class="{ 'opacity-50 cursor-not-allowed': !data.image }" 
+                    class="rounded-md bg-indigo-600 px-3 py-2 
+                        text-sm font-semibold text-white shadow-xs hover:bg-indigo-500 
+                        focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
+                        Upload
+                </button>
             </form>
             
         </div>
