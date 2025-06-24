@@ -4,6 +4,13 @@ import { onMounted, ref } from 'vue';
 import axiosClient from '../axios';
 import { Dialog, DialogPanel, DialogTitle, TransitionChild, TransitionRoot } from '@headlessui/vue';
 import { ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
+import  useUserStore  from '../store/user';
+import { storeToRefs } from 'pinia';
+
+const userStore = useUserStore();
+const { user } = storeToRefs(userStore);
+
+const currentUser = user.value;
 
 const open = ref(false);
 const selectedImage = ref(null);
@@ -39,10 +46,41 @@ function handleEditFileChange(event) {
     }
 }
 
+async function updateImage() {
+    if (!selectedImage.value || !newImageFile.value) return;
+
+    await axiosClient.delete(`/api/images/${selectedImage.value.id}`);
+
+    const formData = new FormData();
+    formData.append('image', newImageFile.value);
+    formData.append('label', selectedImage.value.label);
+
+    const response = await axiosClient.post('/api/images', formData);
+
+    images.value = images.value
+        .filter(img => img.id !== selectedImage.value.id)
+        .concat(response.data);
+
+    open.value = false;
+    selectedImage.value = null;
+    newImageFile.value = null;
+    newImagePreviewUrl.value = null;
+}
+
+function closeModal() {
+    open.value = false;
+    selectedImage.value = null;
+    newImageFile.value = null;
+    newImagePreviewUrl.value = null;
+}
+
 onMounted(() => {
+    if (!user.value) {
+        userStore.fetchUser();
+    }
+
     axiosClient.get('/api/images')
         .then((response) => {
-            console.log(response.data);
             images.value = response.data;
         })
 });
@@ -65,17 +103,20 @@ onMounted(() => {
                         <h3 class="text-lg font-semibold text-gray-900">{{ image.name }}</h3>
                         <p class="text-sm text-gray-500 mb-4">{{ image.label }}</p>
                         <div class="flex justify-between">
-                            <button type="submit" @click="open = true; selectedImage = image"
-                                class="rounded-md bg-green-600 px-3 py-1 text-sm/6 font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline">
-                                Edit
-                            </button>
+                            <template v-if="currentUser && image.user_id == currentUser.id">
+                                <button type="submit" @click="open = true; selectedImage = image"
+                                    class="rounded-md bg-green-600 px-3 py-1 text-sm/6 font-semibold text-white shadow-sm hover:bg-green-700 focus-visible:outline">
+                                    Edit
+                                </button>
+                                
+                                <button type="submit" @click="deleteImage(image.id)"
+                                    class="rounded-md bg-red-600 px-3 py-1 text-sm/6 font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                                    Delete
+                                </button>
+                            </template>
                             <button type="submit" @click="copyImageUrl(image.url)"
                                 class="rounded-md bg-indigo-600 px-3 py-1 text-sm/6 font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
                                 Copy Url
-                            </button>
-                            <button type="submit" @click="deleteImage(image.id)"
-                                class="rounded-md bg-red-600 px-3 py-1 text-sm/6 font-semibold text-white shadow-sm hover:bg-red-700 focus-visible:outline focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                                Delete
                             </button>
 
                         </div>
@@ -83,7 +124,7 @@ onMounted(() => {
                 </div>                              
 
                     <TransitionRoot as="template" :show="open">
-                    <Dialog class="relative z-10" @close="open = false">
+                    <Dialog class="relative z-10" @close="closeModal">
                         <TransitionChild as="template" enter="ease-out duration-300" enter-from="opacity-0" enter-to="opacity-100" leave="ease-in duration-200" leave-from="opacity-100" leave-to="opacity-0">
                         <div class="fixed inset-0 bg-gray-500/75 transition-opacity" />
                         </TransitionChild>
@@ -103,7 +144,9 @@ onMounted(() => {
                                     <div class="mt-2 flex justify-between">
                                         <div class="rounded-lg border border-dashed border-gray-900/25 px-6 py-10 mr-2">
                                             <p>Existing image</p>
-                                            <img :src="selectedImage.url" :alt="selectedImage.name" class="mt-2 max-h-32 max-w-full object-contain" />
+                                            <template v-if="selectedImage">
+                                                <img :src="selectedImage.url" :alt="selectedImage.name" class="mt-2 max-h-32 max-w-full object-contain" />
+                                            </template>
                                         </div>
 
                                         <div class="rounded-lg border border-dashed border-gray-900/25 px-6 py-10 ml-2">
@@ -135,10 +178,15 @@ onMounted(() => {
                                     class="inline-flex w-full justify-center rounded-md bg-green-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-green-500 sm:ml-3 sm:w-auto"
                                     :disabled="!newImageFile"
                                     :class="{ 'opacity-40 cursor-not-allowed': !newImageFile }" 
-                                    @click="open = false">
+                                    @click="updateImage">
                                     Update Image
                                 </button>
-                                <button type="button" class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 sm:mt-0 sm:w-auto" @click="open = false" ref="cancelButtonRef">Cancel</button>
+                                <button type="button" 
+                                class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-gray-300 ring-inset hover:bg-gray-50 sm:mt-0 sm:w-auto" 
+                                @click="closeModal"
+                                ref="cancelButtonRef">
+                                    Cancel
+                                </button>
                                 </div>
                             </DialogPanel>
                             </TransitionChild>

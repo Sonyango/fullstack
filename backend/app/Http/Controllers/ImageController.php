@@ -20,6 +20,7 @@ class ImageController extends Controller
                 "id"=> $image->id,
                 'url' => url(Storage::url($image->path)),
                 'label' => $image->label,
+                'user_id' => $image->user_id,
             ];
         });
     }
@@ -36,7 +37,12 @@ class ImageController extends Controller
 
         $path = $request->file('image')->store('images', 'public');
 
-        $image = Image::create([
+        //$image = Image::create([
+        //    'path' => $path,
+        //    'label' => $request->label,
+        //]);
+
+        $image = $request->user()->images()->create([
             'path' => $path,
             'label' => $request->label,
         ]);
